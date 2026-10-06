@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Screenshot2Meet",
+  "version": "0.1.0",
+  "description": "Fill your When2meet availability from calendar screenshots, processed by a local service.",
+  "permissions": ["sidePanel", "storage"],
+  "host_permissions": [
+    "https://www.when2meet.com/*",
+    "https://when2meet.com/*",
+    "http://127.0.0.1:8765/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "action": { "default_title": "Open Screenshot2Meet" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.when2meet.com/*", "https://when2meet.com/*"],
+      "js": ["main-world.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.when2meet.com/*", "https://when2meet.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

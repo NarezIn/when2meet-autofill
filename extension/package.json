@@ -1,0 +1,19 @@
+{
+  "name": "screenshot2meet-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome MV3 side panel + When2meet content scripts for Screenshot2Meet.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "e2e": "node e2e/fill.e2e.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.4",
+    "esbuild": "^0.28.2",
+    "puppeteer-core": "^24.43.1",
+    "typescript": "^7.0.2"
+  }
+}

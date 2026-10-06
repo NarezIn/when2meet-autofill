@@ -1,0 +1,104 @@
+<!doctype html>
+<!-- Screenshot2Meet side panel: status, events (review), fill/undo, settings. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screenshot2Meet</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header>
+    <h1>Screenshot2Meet</h1>
+    <div class="status">
+      <span id="service-status" class="chip">Service: checking…</span>
+      <span id="page-status" class="chip">When2meet: checking…</span>
+      <button id="refresh" class="link" title="Re-check the service and the When2meet tab">Refresh</button>
+    </div>
+  </header>
+
+  <section id="upload-section">
+    <h2>1. Screenshots</h2>
+    <label id="drop" class="drop">
+      <input id="files" type="file" accept="image/*" multiple hidden>
+      <span>Drop, paste, or <u>choose</u> calendar screenshots</span>
+    </label>
+    <div class="row">
+      <button id="extract" class="primary" disabled>Read screenshots</button>
+      <button id="clear-images" class="link" hidden>Remove all</button>
+      <label class="check"><input id="show-debug" type="checkbox"> Debug overlay</label>
+    </div>
+    <div id="images" class="images"></div>
+  </section>
+
+  <section id="columns-section" hidden>
+    <h2>Check weekdays</h2>
+    <p class="hint">I couldn't read the weekday for these columns. Pick the right one; the guess is pre-filled.</p>
+    <div id="columns"></div>
+  </section>
+
+  <section id="events-section">
+    <h2>2. Review busy events</h2>
+    <p class="hint" id="events-hint">Read your screenshots, or add events by hand.</p>
+    <p class="hint legend" id="events-legend" hidden>Uncheck an event if it shouldn't count as busy.
+      <span class="badge">low</span> = please double-check.</p>
+    <div id="events"></div>
+    <form id="add-event" class="row add-row">
+      <select name="day" aria-label="Day"></select>
+      <input name="date" type="date" aria-label="Date (optional)" title="Optional: a specific date">
+      <input name="start" type="time" step="900" value="09:00" aria-label="Start" required>
+      <span>–</span>
+      <input name="end" type="time" step="900" value="10:00" aria-label="End" required>
+      <button type="submit">Add</button>
+    </form>
+    <div class="row">
+      <button id="load-sample" class="link">Load fixture sample</button>
+      <button id="clear-events" class="link">Clear all</button>
+    </div>
+  </section>
+
+  <section id="ambiguity" hidden>
+    <h2>Which date is each weekday?</h2>
+    <p class="hint">This event covers more than one week. Pick the date your screenshots show for each weekday.</p>
+    <div id="ambiguity-fields"></div>
+  </section>
+
+  <h2>3. Fill</h2>
+  <section class="actions">
+    <button id="fill" class="primary">Fill When2meet</button>
+    <button id="undo">Undo fill</button>
+  </section>
+  <p id="message" role="status"></p>
+
+  <details id="settings-section">
+    <summary>Settings</summary>
+    <form id="settings" class="settings">
+      <label>OCR engine
+        <select name="ocrEngine">
+          <option value="paddle">PaddleOCR</option>
+          <option value="tesseract">Tesseract</option>
+        </select>
+      </label>
+      <label>OCR languages <small>(comma-separated)</small>
+        <input name="ocrLanguages" type="text">
+      </label>
+      <label>Confidence threshold
+        <input name="confidenceThreshold" type="number" min="0" max="1" step="0.05">
+      </label>
+      <label>Keyword rules <small>(one per line; matching titles don't count as busy)</small>
+        <textarea name="keywordRules" rows="3"></textarea>
+      </label>
+      <label>Buffer minutes
+        <input name="bufferMinutes" type="number" min="0" max="240" step="5">
+      </label>
+      <label>Minimum free block (minutes)
+        <input name="minFreeBlockMinutes" type="number" min="0" max="1440" step="15">
+      </label>
+      <label class="check"><input name="allDayBusy" type="checkbox"> All-day events count as busy</label>
+      <label class="check"><input name="skipReview" type="checkbox"> Skip review and fill immediately</label>
+    </form>
+  </details>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
