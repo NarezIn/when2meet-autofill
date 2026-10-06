@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screenshot2meet"
+version = "0.1.0"
+description = "Local service that turns calendar screenshots into When2meet availability."
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic>=2.8",
+    "python-multipart>=0.0.9",
+    "numpy>=2.1",
+    # Same version PaddleX pins for opencv-contrib-python; both packages write the cv2 folder.
+    "opencv-python-headless==4.10.0.84",
+    "Pillow>=10.4",
+    "babel>=2.16",
+    "tzdata>=2024.1",
+    # PaddleOCR docs recommend PaddlePaddle 3.2.0 for CPU (3.3.0 has a CPU inference bug).
+    "paddlepaddle==3.2.0",
+    "paddleocr>=3.7",
+]
+
+[project.optional-dependencies]
+tesseract = ["pytesseract>=0.3.13"]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+screenshot2meet = "screenshot2meet.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
