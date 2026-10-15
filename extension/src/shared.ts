@@ -40,7 +40,7 @@ export interface ApplyResult {
 }
 
 /**
- * A busy event as shown/edited on the review screen and sent to POST /fill-plan.
+ * A busy event as returned by POST /extract and sent to POST /fill-plan.
  * Events from the extractor also carry the optional extraction fields.
  */
 export interface ReviewedEvent {
@@ -49,6 +49,8 @@ export interface ReviewedEvent {
   start: string;
   end: string;
   title?: string | null;
+  /** Calendar colour as "#rrggbb", for colour rules. */
+  color?: string | null;
   low_confidence: boolean;
   counts_as_busy: boolean;
   all_day?: boolean;
@@ -98,6 +100,8 @@ export interface FillPlan {
   low_confidence_slots: number[];
   ambiguous_weekdays: Partial<Record<Weekday, string[]>>;
   unmatched_events: number[];
+  /** Indices of events left out by the colour rules. */
+  color_skipped: number[];
 }
 
 /** Messages the side panel sends to the content script. */

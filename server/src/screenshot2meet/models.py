@@ -66,7 +66,7 @@ class EventContext(BaseModel):
 
 
 class ColumnInfo(BaseModel):
-    """How one day column of one screenshot was identified (for the review screen)."""
+    """How one day column of one screenshot was identified (for the side panel's weekday prompt)."""
 
     source_image: int
     column: int
@@ -108,6 +108,7 @@ class ExtractedEvent(BaseModel):
     start: str
     end: str
     title: str | None = None
+    color: str | None = Field(default=None, description="Calendar colour as #rrggbb, for colour rules.")
     confidence: float = Field(ge=0.0, le=1.0)
     cut_off: Literal["top", "bottom"] | None = None
     source_image: int = 0
@@ -115,6 +116,7 @@ class ExtractedEvent(BaseModel):
     bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
     weekday_guessed: bool = False
     minimum_height: bool = False
+    all_day: bool = False
     reasons: list[str] = Field(default_factory=list)
     low_confidence: bool = False
     counts_as_busy: bool = True
@@ -135,7 +137,7 @@ class ExtractedEvent(BaseModel):
 
 
 class ReviewedEvent(BaseModel):
-    """A busy event after the user reviewed it in the side panel."""
+    """A busy event sent by the side panel to POST /fill-plan."""
 
     day: Weekday
     date: dt.date | None = None
@@ -145,6 +147,7 @@ class ReviewedEvent(BaseModel):
     low_confidence: bool = False
     counts_as_busy: bool = True
     all_day: bool = False
+    color: str | None = None
 
     @field_validator("start", "end")
     @classmethod
@@ -167,6 +170,11 @@ class PlanSettings(BaseModel):
     buffer_minutes: int = Field(default=0, ge=0, le=240)
     min_free_block_minutes: int = Field(default=15, ge=0, le=24 * 60)
     all_day_busy: bool = False
+    color_rules: list[str] = Field(default_factory=list, description="Rule colours as #rrggbb; empty = off.")
+    color_rule_mode: Literal["exclude", "only"] = Field(
+        default="exclude",
+        description="exclude: events in these colours don't count as busy; only: only they count.",
+    )
 
 
 class FillPlanRequest(BaseModel):
@@ -197,6 +205,9 @@ class FillPlanResponse(BaseModel):
     ambiguous_weekdays: dict[Weekday, list[dt.date]] = Field(default_factory=dict)
     unmatched_events: list[int] = Field(
         default_factory=list, description="Indices of events that matched no day of the event."
+    )
+    color_skipped: list[int] = Field(
+        default_factory=list, description="Indices of events left out by the colour rules."
     )
 
 

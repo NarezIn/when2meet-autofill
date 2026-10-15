@@ -1,0 +1,12 @@
+{
+  "image": "fixtures/google_cal_eg.png",
+  "description": "Google Calendar Schedule (list) view, dark mode, English UI, Oct 12-31. All-day events are 00:00-24:00.",
+  "events": [
+    {"day": "Mon", "start": "00:00", "end": "24:00", "low": false},
+    {"day": "Wed", "start": "14:30", "end": "15:00", "low": false},
+    {"day": "Wed", "start": "15:00", "end": "16:00", "low": false},
+    {"day": "Wed", "start": "15:00", "end": "16:00", "low": false},
+    {"day": "Wed", "start": "15:00", "end": "16:00", "low": false},
+    {"day": "Sat", "start": "00:00", "end": "24:00", "low": false}
+  ]
+}

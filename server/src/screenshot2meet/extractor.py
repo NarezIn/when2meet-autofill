@@ -3,6 +3,8 @@ Calendar-screenshot extraction behind a small Extractor protocol.
 
 CvOcrExtractor handles iOS Calendar day / multi-day views (dark and light):
 OCR -> time axis fit -> day columns + headers -> blocks -> times + confidence.
+Screenshots without a time axis are tried as list layouts (e.g. Google Calendar's
+Schedule view, see agenda.py), where each event states its own time range.
 A vision-model extractor can be added later by implementing Extractor.
 """
 
@@ -15,7 +17,9 @@ from typing import Protocol
 
 import numpy as np
 
+from .agenda import DayLabel, analyze_agenda, parse_month_header
 from .blocks import Block, background_color, detect_blocks
+from .colors import to_hex
 from .confidence import score_event
 from .debug import draw_debug
 from .merge import merge_events
@@ -45,6 +49,12 @@ from .weekdays import MatchQuality, parse_header
 TOP_GAP_MIN = 3.3
 BOTTOM_GAP_MIN = 2.4
 SNAP_MIN = 15
+# A compact block is anchored at its start unless its end lands this many minutes
+# closer to the 15-minute grid. Kept small: a pill has a fixed pixel height, so in
+# landscape (fewer px per hour) it spans more minutes and its start drifts further.
+END_ANCHOR_MARGIN_MIN = 1
+# A partial column at the right edge is kept if at least this fraction of a full column shows.
+PARTIAL_COLUMN_MIN = 0.4
 # Compact (minimum-height) blocks: shorter than this fraction of an hour...
 COMPACT_MAX_HEIGHT = 0.42
 # ...with the accent bar inset less than this fraction of an hour from the top.
@@ -94,6 +104,8 @@ class ImageAnalysis:
     columns: list[Column] = field(default_factory=list)
     events: list[ExtractedEvent] = field(default_factory=list)
     error: str | None = None
+    # List layouts only: the day labels (columns then stand for these days).
+    day_labels: list[DayLabel] | None = None
 
 
 def snap(minutes: float, step: int = SNAP_MIN) -> int:
@@ -135,7 +147,7 @@ def block_times(block: Block, axis: AxisFit) -> tuple[int, int, bool]:
     if compact:
         top_error = abs(start_raw - snap(start_raw))
         bottom_error = abs(end_raw - snap(end_raw))
-        start = snap(end_raw) - SNAP_MIN if bottom_error + 2 < top_error else snap(start_raw)
+        start = snap(end_raw) - SNAP_MIN if bottom_error + END_ANCHOR_MARGIN_MIN < top_error else snap(start_raw)
         return start, start + SNAP_MIN, True
     start, end = snap(start_raw), snap(end_raw)
     return start, max(end, start + SNAP_MIN), False
@@ -144,6 +156,10 @@ def block_times(block: Block, axis: AxisFit) -> tuple[int, int, bool]:
 def find_columns(image: np.ndarray, bg: np.ndarray, axis_right: int, y_range: tuple[int, int]) -> list[Column]:
     """
     Split the grid into day columns at the vertical separator lines.
+
+    The first column starts at the time labels when no separator sits right after
+    them (landscape layouts have none). A column cut off by the right edge is kept
+    if enough of it shows.
 
     Args:
         image (np.ndarray): BGR screenshot.
@@ -155,15 +171,19 @@ def find_columns(image: np.ndarray, bg: np.ndarray, axis_right: int, y_range: tu
         list[Column]: Columns left to right (without headers yet).
     """
     width = image.shape[1]
+    min_width = 0.08 * width
     seps = [x for x in detect_vertical_lines(image, bg, y_range) if x > axis_right]
     bounds = [int(round(x)) for x in seps]
-    if not bounds or bounds[0] > 0.3 * width:
+    if not bounds or bounds[0] - axis_right > min_width:
         bounds.insert(0, axis_right + 4)
-    if width - bounds[-1] > 0.15 * width:
+    full = [right - left for left, right in zip(bounds, bounds[1:]) if right - left >= min_width]
+    typical = float(np.median(full)) if full else 0.0
+    remainder = width - bounds[-1]
+    if remainder > 0.15 * width or (typical and remainder >= PARTIAL_COLUMN_MIN * typical):
         bounds.append(width)
     columns = []
     for left, right in zip(bounds, bounds[1:]):
-        if right - left >= 0.08 * width:
+        if right - left >= min_width or (right == width and typical and right - left >= PARTIAL_COLUMN_MIN * typical):
             columns.append(Column(index=len(columns), x0=left + 2, x1=right - 1))
     return columns
 
@@ -203,6 +223,27 @@ def grid_bounds(
     return y0, y1
 
 
+def month_hint(columns: list[Column], words: list[OcrWord], y0: int) -> int | None:
+    """
+    The month shown above the grid outside the column headers (landscape iOS shows
+    "10月" top-left while the headers only say "13 周二").
+
+    Args:
+        columns (list[Column]): The day columns.
+        words (list[OcrWord]): OCR words of the image.
+        y0 (int): Top of the grid.
+
+    Returns:
+        int | None: Month number, or None if none is shown.
+    """
+    if not columns:
+        return None
+    for word in sorted((w for w in words if w.y1 <= y0 + 4 and w.x1 <= columns[0].x0 + 10), key=lambda w: w.y0):
+        if parsed := parse_month_header(word.text):
+            return parsed[0]
+    return None
+
+
 def read_headers(columns: list[Column], words: list[OcrWord], y0: int, ctx: EventContext) -> None:
     """
     Read each column's header: the text row closest above the grid that parses.
@@ -216,6 +257,7 @@ def read_headers(columns: list[Column], words: list[OcrWord], y0: int, ctx: Even
     Returns:
         None
     """
+    hint = month_hint(columns, words, y0)
     for column in columns:
         candidates = [w for w in words if w.y1 <= y0 + 4 and column.x0 - 10 <= w.cx <= column.x1 + 10]
         rows: list[list[OcrWord]] = []
@@ -232,7 +274,7 @@ def read_headers(columns: list[Column], words: list[OcrWord], y0: int, ctx: Even
                 if parsed.weekday:
                     column.day = parsed.weekday
                     column.quality = parsed.quality or "exact"
-                column.date = header_date(parsed.day_of_month, parsed.month, ctx)
+                column.date = header_date(parsed.day_of_month, parsed.month or hint, ctx)
                 break
 
 
@@ -336,7 +378,8 @@ class CvOcrExtractor:
 
     def analyze_image(self, index: int, image: np.ndarray, ctx: EventContext, engine: object) -> ImageAnalysis:
         """
-        Run the full pipeline on one screenshot.
+        Run the full pipeline on one screenshot: the time-grid reader first, then the
+        list-layout reader if the grid reader can't find a time axis or day columns.
 
         Args:
             index (int): Position of the image in the upload.
@@ -345,15 +388,52 @@ class CvOcrExtractor:
             engine (object): OCR engine (has read() and read_extra()).
 
         Returns:
-            ImageAnalysis: Findings for this image; `error` is set if the time axis couldn't be read.
+            ImageAnalysis: Findings for this image; `error` is set if neither layout could be read.
         """
         result = ImageAnalysis(index=index, image=image)
-        height, width = image.shape[:2]
         result.words = engine.read(image)  # type: ignore[attr-defined]
+        self.analyze_grid(result, ctx, engine)
+        if result.error is None:
+            return result
+        agenda = analyze_agenda(image, result.words, index, ctx)
+        if agenda is None:
+            result.error = f"{result.error}; also not a list view (no day labels with event times found)"
+            return result
+        result.error = None
+        result.day_labels = agenda.labels
+        result.events = agenda.events
+        result.columns = [
+            Column(
+                index=i,
+                x0=label.box[0],
+                x1=label.box[2],
+                header=label.text,
+                day=label.day,
+                date=label.date,
+                quality=label.quality,
+            )
+            for i, label in enumerate(agenda.labels)
+        ]
+        return result
+
+    def analyze_grid(self, result: ImageAnalysis, ctx: EventContext, engine: object) -> None:
+        """
+        Read a time-grid screenshot (iOS Calendar day / multi-day view) into `result`.
+
+        Args:
+            result (ImageAnalysis): Holds the image and OCR words; filled in place.
+            ctx (EventContext): Event context and settings.
+            engine (object): OCR engine (has read() and read_extra()).
+
+        Returns:
+            None: Sets `result.error` if the time axis or the day columns can't be found.
+        """
+        image, index = result.image, result.index
+        height, width = image.shape[:2]
         pairs = axis_words(result.words, width)
         if len(pairs) < 3:
             result.error = f"found {len(pairs)} time labels on the left; need at least 3"
-            return result
+            return
 
         top, bottom = int(pairs[0][0].cy), int(pairs[-1][0].cy)
         axis_right = max(w.x1 for w, _ in pairs)
@@ -361,7 +441,7 @@ class CvOcrExtractor:
         columns = find_columns(image, bg, axis_right, (top, bottom))
         if not columns:
             result.error = "couldn't find any day columns"
-            return result
+            return
 
         x_ranges = [(c.x0, c.x1) for c in columns]
         edges = sorted({c.x0 - 2 for c in columns} | {c.x1 + 1 for c in columns})
@@ -376,7 +456,7 @@ class CvOcrExtractor:
             axis = fit_axis(labels)
         except AxisError as exc:
             result.error = str(exc)
-            return result
+            return
         result.axis = axis
 
         header_words = [w for w in result.words if w.y1 < axis.minutes_to_y(axis.inliers[0].minutes) - 0.3 * axis.px_per_hour]
@@ -396,7 +476,6 @@ class CvOcrExtractor:
             column.blocks = detect_blocks(image, (column.x0, column.x1), (y0, y1), axis.px_per_hour)
             for block in column.blocks:
                 result.events.append(self.block_event(block, column, axis, (y0, y1), result.words, index, ctx))
-        return result
 
     @staticmethod
     def block_event(
@@ -452,6 +531,7 @@ class CvOcrExtractor:
             start=format_hhmm(start),
             end=format_hhmm(end),
             title=title,
+            color=to_hex(block.accent or block.color),
             confidence=round(conf.score, 3),
             cut_off=cut_off,
             source_image=index,

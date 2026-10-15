@@ -1,0 +1,84 @@
+{
+  "image": "fixtures/ios_2img_test_slim/ios_2img_test_2.png",
+  "description": "iOS Calendar 2-day view, portrait, dark, Chinese UI, Wed 10/14 and Thu 10/15; red now-line at 21:21. Expected times checked by eye against the screenshot.",
+  "events": [
+    {
+      "day": "Wed",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Wed",
+      "start": "11:00",
+      "end": "12:15",
+      "low": false
+    },
+    {
+      "day": "Wed",
+      "start": "11:00",
+      "end": "12:15",
+      "low": false
+    },
+    {
+      "day": "Wed",
+      "start": "14:30",
+      "end": "14:45",
+      "low": true
+    },
+    {
+      "day": "Wed",
+      "start": "21:30",
+      "end": "21:45",
+      "low": true
+    },
+    {
+      "day": "Wed",
+      "start": "22:30",
+      "end": "22:45",
+      "low": true
+    },
+    {
+      "day": "Thu",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Thu",
+      "start": "09:30",
+      "end": "11:00",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "09:30",
+      "end": "10:45",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "14:00",
+      "end": "15:15",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "15:30",
+      "end": "16:45",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "19:15",
+      "end": "21:15",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "22:30",
+      "end": "22:45",
+      "low": true
+    }
+  ]
+}

@@ -31,6 +31,8 @@ class Block:
     color: tuple[int, int, int]
     accent_inset: float | None
     edge_sharpness: float
+    # Median BGR of the bright accent pixels (bar, dot, text): the calendar colour.
+    accent: tuple[int, int, int] | None = None
 
     @property
     def height(self) -> int:
@@ -82,6 +84,23 @@ def accent_mask(region: np.ndarray) -> np.ndarray:
     """
     hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
     return (hsv[..., 2] > 150) & (hsv[..., 1] > 70)
+
+
+def accent_color(pixels: np.ndarray, mask: np.ndarray, min_pixels: int = 15) -> tuple[int, int, int] | None:
+    """
+    Median colour of the accent pixels of a block.
+
+    Args:
+        pixels (np.ndarray): BGR pixels of the block.
+        mask (np.ndarray): Boolean accent mask of the same shape (H, W).
+        min_pixels (int): Fewest accent pixels needed to trust the colour.
+
+    Returns:
+        tuple[int, int, int] | None: BGR colour, or None if there are too few accent pixels.
+    """
+    if int(mask.sum()) < min_pixels:
+        return None
+    return tuple(int(c) for c in np.median(pixels[mask], axis=0))  # type: ignore[return-value]
 
 
 def _accent_bars(acc: np.ndarray, min_height: int) -> list[tuple[int, int, int, int]]:
@@ -184,13 +203,16 @@ def detect_blocks(image: np.ndarray, x_range: tuple[int, int], y_range: tuple[in
         if sat < 30 and not bars:
             continue  # gray overlays such as the side handle
         is_red = (hue < 8 or hue > 170) and sat > 120
-        if is_red and h < 0.2 * px_per_hour and w > 3 * h and not bars:
+        # Typical thickness ignores the line's round end dot, which can make the box taller.
+        thickness = float(np.median(sub_mask.sum(axis=0)))
+        if is_red and thickness < 0.2 * px_per_hour and w > 3 * thickness and not bars:
             continue  # the red current-time line
         color = tuple(int(c) for c in np.median(region[y : y1 + 1, x : x1 + 1][sub_mask], axis=0))
         left_bars = [bar for bar in bars if bar[0] < 0.3 * w]
         inset = float(min(bar[1] for bar in left_bars)) if left_bars else None
         sharp = min(_edge_sharpness(diff, x, x1, y, 1), _edge_sharpness(diff, x, x1, y1, -1))
-        blocks.append(Block(cx0 + x, gy0 + y, cx0 + x1, gy0 + y1, color, inset, sharp))  # type: ignore[arg-type]
+        accent = accent_color(region[y : y1 + 1, x : x1 + 1], acc[y : y1 + 1, x : x1 + 1] & sub_mask)
+        blocks.append(Block(cx0 + x, gy0 + y, cx0 + x1, gy0 + y1, color, inset, sharp, accent))  # type: ignore[arg-type]
     blocks.sort(key=lambda b: (b.y0, b.x0))
     return blocks
 

@@ -42,7 +42,8 @@ def draw_debug(analysis: ImageAnalysis, threshold: float) -> bytes:
 
     Shows: axis labels (green = used in the fit, red = rejected) with the fitted
     hour ticks, grid bounds (cyan), column bounds and weekday (magenta), and
-    each box with its times and confidence (green = ok, orange = low).
+    each box with its times and confidence (green = ok, orange = low). For list
+    layouts: day labels with weekday/date (magenta) and each event card.
 
     Args:
         analysis (ImageAnalysis): Findings for the image.
@@ -73,17 +74,24 @@ def draw_debug(analysis: ImageAnalysis, threshold: float) -> bytes:
         y0, y1 = analysis.grid
         cv2.line(img, (0, y0), (width, y0), CYAN, 2)
         cv2.line(img, (0, y1), (width, y1), CYAN, 2)
-    for column in analysis.columns:
+    for column in [] if analysis.day_labels is not None else analysis.columns:
         cv2.line(img, (column.x0, 0), (column.x0, img.shape[0]), MAGENTA, 1)
         cv2.line(img, (column.x1, 0), (column.x1, img.shape[0]), MAGENTA, 1)
         y = (analysis.grid[0] - 8) if analysis.grid else 60
         label = f"col {column.index}: {column.day} ({column.quality})" + (f" {column.date}" if column.date else "")
         _text(img, label, (column.x0 + 6, y), MAGENTA)
+    for label in analysis.day_labels or []:
+        if not label.text:
+            continue  # synthetic label for a day that scrolled off the top
+        x0, y0, x1, y1 = label.box
+        cv2.rectangle(img, (x0 - 4, y0 - 4), (x1 + 4, y1 + 4), MAGENTA, 2)
+        tag = f"{label.day} {label.date or ''} ({label.quality})"
+        _text(img, tag, (max(0, x0 - 4), y1 + 22), MAGENTA, 0.5)
     for event in analysis.events:
         x0, y0, x1, y1 = event.bbox
         color = ORANGE if event.confidence < threshold else GREEN
         cv2.rectangle(img, (x0, y0), (x1, y1), color, 2)
-        tag = f"{event.start}-{event.end} c={event.confidence:.2f}"
+        tag = f"{'all day' if event.all_day else f'{event.start}-{event.end}'} c={event.confidence:.2f}"
         if event.minimum_height:
             tag += " min"
         if event.cut_off:

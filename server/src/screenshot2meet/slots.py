@@ -16,6 +16,7 @@ import datetime as dt
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
+from .colors import passes_color_rules
 from .models import WEEKDAYS, FillPlanRequest, FillPlanResponse, ReviewedEvent, Weekday, parse_hhmm
 
 UTC = dt.timezone.utc
@@ -259,8 +260,12 @@ def compute_fill_plan(req: FillPlanRequest, today: dt.date | None = None) -> Fil
     low: list[Interval] = []
     ambiguous: dict[Weekday, list[dt.date]] = {}
     unmatched: list[int] = []
+    color_skipped: list[int] = []
     for index, event in enumerate(req.events):
         if not event.counts_as_busy or (event.all_day and not req.settings.all_day_busy):
+            continue
+        if not passes_color_rules(event.color, req.settings.color_rules, req.settings.color_rule_mode):
+            color_skipped.append(index)
             continue
         dates, candidates = event_dates(event, req, slot_dates, today)
         if candidates:
@@ -275,7 +280,11 @@ def compute_fill_plan(req: FillPlanRequest, today: dt.date | None = None) -> Fil
 
     if ambiguous:
         return FillPlanResponse(
-            available_slots=[], low_confidence_slots=[], ambiguous_weekdays=ambiguous, unmatched_events=unmatched
+            available_slots=[],
+            low_confidence_slots=[],
+            ambiguous_weekdays=ambiguous,
+            unmatched_events=unmatched,
+            color_skipped=color_skipped,
         )
 
     available = [ts for ts, iv in intervals.items() if not any(iv.overlaps(b) for b in busy)]
@@ -285,4 +294,5 @@ def compute_fill_plan(req: FillPlanRequest, today: dt.date | None = None) -> Fil
         available_slots=sorted(available),
         low_confidence_slots=sorted(low_slots),
         unmatched_events=unmatched,
+        color_skipped=color_skipped,
     )

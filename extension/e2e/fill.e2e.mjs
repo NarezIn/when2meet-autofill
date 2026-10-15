@@ -1,8 +1,11 @@
 /**
  * End-to-end test against the two throwaway When2meet test events (live site!):
- * real Chrome + the built extension; uploads the fixture in the side panel, reads it
- * via the local service, fills (specific dates: Fill button; days of week: skip-review),
- * checks the saved availability and outlines, then undoes and checks the restore.
+ * real Chrome + the built extension; checks the problem banner and the Connection rows,
+ * uploads the fixture in the side panel and clicks Fill (which reads it via the local
+ * service), checks the summary, the saved availability and the outlines, checks the
+ * enlarged view (developer mode on for the days-of-week event), then undoes and checks
+ * the restore. The specific-dates run also sets a colour rule that ignores the yellow
+ * calendar, so its expected availability leaves out the yellow events.
  *
  * Needs: the service running on 127.0.0.1:8765 and `npm run build`.
  * Usage: npm run e2e   (or: node e2e/fill.e2e.mjs [dist-dir] [fixture.png])
@@ -58,18 +61,24 @@ const BUSY = {
   Tue: [["09:00", "09:15"], ["09:30", "10:45"], ["14:00", "15:15"], ["15:30", "16:45"]],
 };
 const LOW = { Mon: ["09:00", "14:15"], Tue: ["09:00"] };
+/** The fixture's yellow calendar colour, and its events that don't overlap other busy events. */
+const YELLOW = "#f9db69";
+const YELLOW_ONLY = { Tue: [["09:30", "10:45"], ["14:00", "15:15"]] };
 
 /**
- * Expected availability after filling the fixture sample ("Plan out Tomorrow" not busy).
+ * Expected availability after filling the fixture ("Plan out Tomorrow" not busy by keyword rule).
  * @param {number[]} all All slot timestamps.
  * @param {boolean} dow Days-of-week mode.
+ * @param {boolean} ignoreYellow Whether a colour rule leaves out the yellow events.
  * @returns {Set<number>} Expected available slots.
  */
-function expectedAvailable(all, dow) {
+function expectedAvailable(all, dow, ignoreYellow) {
+  const inAny = (ranges, hm) => (ranges ?? []).some(([a, b]) => hm >= a && hm < b);
   return new Set(
     all.filter((ts) => {
       const { day, hm } = wall(ts, dow);
-      return !(BUSY[day] ?? []).some(([a, b]) => hm >= a && hm < b);
+      if (ignoreYellow && inAny(YELLOW_ONLY[day], hm)) return true;
+      return !inAny(BUSY[day], hm);
     }),
   );
 }
@@ -89,22 +98,31 @@ function diff(got, want, dow) {
 }
 
 /**
- * Click the side panel button and wait for the status message to change.
+ * Click a side panel button and wait until the panel is no longer busy (Fill re-enabled).
  * @param {import("puppeteer-core").Page} panel Side panel page.
  * @param {string} selector Button selector.
- * @returns {Promise<string>} The final message.
+ * @returns {Promise<{message: string, result: string | null}>} The message and the summary line (null if hidden).
  */
 async function clickAndWait(panel, selector) {
-  await panel.$eval("#message", (el) => (el.textContent = ""));
   await panel.$eval(selector, (el) => el.click());
-  await panel.waitForFunction(
-    () => {
-      const t = document.getElementById("message").textContent;
-      return t && !t.endsWith("…");
-    },
-    { timeout: 180000 },
-  );
-  return panel.$eval("#message", (el) => el.textContent);
+  await panel.waitForFunction(() => !document.getElementById("fill").disabled, { timeout: 180000 });
+  return panel.evaluate(() => ({
+    message: document.getElementById("message").textContent,
+    result: document.getElementById("result").hidden ? null : document.getElementById("result-text").textContent,
+  }));
+}
+
+/**
+ * Make the panel (opened as a tab) treat the When2meet tab as the active tab.
+ * @param {import("puppeteer-core").Page} panel Side panel page.
+ * @param {string} url Event URL.
+ * @returns {Promise<void>}
+ */
+async function pointPanelAt(panel, url) {
+  await panel.evaluate((u) => {
+    const real = chrome.tabs.query.bind(chrome.tabs);
+    chrome.tabs.query = async () => real({ url: u.split("?")[0] + "*" });
+  }, url);
 }
 
 /**
@@ -112,7 +130,7 @@ async function clickAndWait(panel, selector) {
  * @param {import("puppeteer-core").Browser} browser Browser.
  * @param {string} extId Extension ID.
  * @param {string} url Event URL.
- * @param {boolean} dow Days-of-week mode.
+ * @param {boolean} dow Days-of-week mode (also turns developer mode on; otherwise a yellow colour rule is set).
  * @returns {Promise<boolean>} Whether all checks passed.
  */
 async function runEvent(browser, extId, url, dow) {
@@ -149,63 +167,58 @@ async function runEvent(browser, extId, url, dow) {
   const preState = await serverState(url, personId);
   console.log(`  pre-state: ${preState.mine.size} available slots (real drag ${wasAvailable ? "cleared" : "set"} col 4 rows 8-15)`);
 
-  // Side panel as a tab; point its "active tab" lookup at the When2meet tab.
+  // Side panel as a tab. Its own tab is active at first, so it should warn about the missing event.
   const panel = await browser.newPage();
+  await panel.setViewport({ width: 360, height: 900 });
   await panel.goto(`chrome-extension://${extId}/sidepanel.html`);
-  await panel.evaluate((u) => {
-    const real = chrome.tabs.query.bind(chrome.tabs);
-    chrome.tabs.query = async () => real({ url: u.split("?")[0] + "*" });
-  }, url);
+  await panel.evaluate(
+    async (devMode, yellow) => {
+      const s = (await chrome.storage.local.get("settings")).settings ?? {};
+      const colorRules = devMode ? [] : [yellow];
+      await chrome.storage.local.set({ settings: { ...s, developerMode: devMode, colorRules, colorRuleMode: "exclude" } });
+    },
+    dow,
+    YELLOW,
+  );
+  await panel.reload();
+  await panel.waitForFunction(() => !document.getElementById("banner").hidden, { timeout: 20000 });
+  const banner = await panel.$eval("#banner-text", (e) => e.textContent);
+  check(banner.includes("Open your When2meet event"), `banner without an event tab: "${banner}"`);
+
+  await pointPanelAt(panel, url);
   await panel.$eval("#refresh", (el) => el.click());
-  await panel.waitForFunction(() => document.getElementById("page-status").textContent.includes("simon-claude"), {
+  await panel.waitForFunction(() => document.getElementById("conn-user").textContent.includes("simon-claude"), {
     timeout: 20000,
   });
-  console.log("  status:", await panel.$eval("#page-status", (e) => e.textContent));
-  check(
-    (await panel.$eval("#page-status", (e) => e.textContent)).includes(dow ? "days of week" : "specific dates"),
-    "mode detected",
+  const conn = await panel.evaluate(() =>
+    ["conn-service", "conn-user", "conn-mode", "conn-tz"].map((id) => document.getElementById(id).textContent),
   );
+  console.log("  connection:", conn.join(" | "));
+  check(conn[0] === "Running", "service shown as running");
+  check(conn[2] === (dow ? "Days of the week" : "Specific dates"), "event type detected");
+  check(await panel.$eval("#banner", (e) => e.hidden), "no banner when everything is fine");
+  check((await panel.$$("#events-section, #show-debug, #extract, .event")).length === 0, "review UI and debug toggle are gone");
 
-  if (dow) {
-    // Skip-review path: turn the setting on, then reading the screenshot fills immediately.
-    await panel.evaluate(async () => {
-      const s = (await chrome.storage.local.get("settings")).settings ?? {};
-      await chrome.storage.local.set({ settings: { ...s, skipReview: true } });
-    });
-    await panel.reload();
-    await panel.evaluate((u) => {
-      const real = chrome.tabs.query.bind(chrome.tabs);
-      chrome.tabs.query = async () => real({ url: u.split("?")[0] + "*" });
-    }, url);
-  }
   const input = await panel.$("#files");
   await input.uploadFile(FIXTURE);
+  check((await panel.$$(".thumb")).length === 1, "thumbnail shown");
   const t0 = Date.now();
-  const readMsg = await clickAndWait(panel, "#extract");
-  console.log(`  read (${((Date.now() - t0) / 1000).toFixed(1)}s): ${readMsg.replaceAll("\n", " | ")}`);
-  check(dow || readMsg.startsWith("Found 12 events, 5 to double-check"), "extraction found 12 events, 5 low");
-  const rows = await panel.$$eval(".event", (els) => els.length);
-  check(rows === 12, `review shows 12 rows (${rows})`);
-  const notBusy = await panel.$$eval(".event.not-busy .title", (els) => els.map((e) => e.textContent));
-  check(notBusy.length === 2 && notBusy.every((t) => t === "Plan out Tomorrow"), "keyword rule unchecked 'Plan out Tomorrow'");
-  await panel.$eval("#show-debug", (el) => el.click());
-  const debugSrc = await panel.$eval("#images img", (img) => img.src.slice(0, 22));
-  check(debugSrc === "data:image/png;base64,", "debug overlay toggle shows the overlay");
+  const filled = await clickAndWait(panel, "#fill");
+  console.log(`  fill (${((Date.now() - t0) / 1000).toFixed(1)}s): ${filled.result} | ${filled.message.replaceAll("\n", " | ")}`);
+  check(/^Filled \d+ slots · 3 uncertain slots outlined on the grid$/.test(filled.result ?? ""), "one-line summary");
+  check(!(await panel.$eval("#undo", (e) => e.disabled)), "Undo enabled next to the summary");
   if (!dow) {
-    await panel.setViewport({ width: 420, height: 1800 });
-    await panel.screenshot({ path: join(tmpdir(), "s2m-review-panel.png"), fullPage: true });
+    check(filled.message.includes("3 events left out by your color rules."), "color rule reported 3 yellow events left out");
+    const swatches = await panel.$$eval("#found-colors .chip", (els) => els.map((e) => e.title.slice(0, 7)));
+    console.log("  found colors:", swatches.join(" "));
+    check(swatches.length >= 4 && swatches.includes(YELLOW), "found-color swatches include the yellow calendar");
+    check((await panel.$$("#color-chips .chip")).length === 1, "the yellow rule shows as one chip");
   }
-  const fillMsg = dow
-    ? (await panel.waitForFunction(() => document.getElementById("message").textContent.includes("Done:"), { timeout: 120000 }),
-      await panel.$eval("#message", (el) => el.textContent))
-    : await clickAndWait(panel, "#fill");
-  console.log(`  fill (${((Date.now() - t0) / 1000).toFixed(1)}s): ${fillMsg.replace(/\n/g, " | ")}`);
-  check(fillMsg.includes("Done:"), "fill reported success");
 
   const afterFill = await serverState(url, personId);
-  const want = expectedAvailable(afterFill.all, dow);
+  const want = expectedAvailable(afterFill.all, dow, !dow);
   const d1 = diff(afterFill.mine, want, dow);
-  check(!d1, `server availability matches expected after fill ${d1}`);
+  check(!d1, `server availability matches expected after fill (keyword rule applied) ${d1}`);
 
   const outlined = await w2m.$$eval(".s2m-lowconf", (els) => els.map((e) => Number(e.id.slice(7))));
   const outlinedWall = outlined.map((ts) => `${wall(ts, dow).day} ${wall(ts, dow).hm}`).sort();
@@ -221,8 +234,18 @@ async function runEvent(browser, extId, url, dow) {
   });
   check(hit, "outlined cell is still the click target");
 
-  const undoMsg = await clickAndWait(panel, "#undo");
-  console.log(`  undo: ${undoMsg}`);
+  // Enlarged view: original image normally, detection overlay in developer mode; Esc closes.
+  await panel.$eval(".thumb-open", (el) => el.click());
+  const viewerSrc = await panel.$eval("#viewer-img", (img) => img.src.slice(0, 22));
+  check(
+    dow ? viewerSrc === "data:image/png;base64," : viewerSrc.startsWith("blob:"),
+    `enlarged view shows the ${dow ? "detection overlay" : "original screenshot"}`,
+  );
+  await panel.keyboard.press("Escape");
+  check(await panel.$eval("#viewer", (e) => e.hidden), "Esc closes the enlarged view");
+
+  const undone = await clickAndWait(panel, "#undo");
+  console.log(`  undo: ${undone.message}`);
   const afterUndo = await serverState(url, personId);
   const d2 = diff(afterUndo.mine, preState.mine, dow);
   check(!d2, `server availability restored by undo ${d2}`);

@@ -75,7 +75,7 @@ export function eventDates(ctx: W2MContext): string[] {
  * @param {File[]} files Screenshot files.
  * @param {W2MContext | null} ctx When2meet context, if a When2meet tab is open.
  * @param {Settings} settings User settings.
- * @returns {Promise<ExtractResponse>} Events and per-image reports (with debug overlays).
+ * @returns {Promise<ExtractResponse>} Events and per-image reports (with debug overlays in developer mode).
  */
 export function requestExtract(files: File[], ctx: W2MContext | null, settings: Settings): Promise<ExtractResponse> {
   const form = new FormData();
@@ -92,7 +92,7 @@ export function requestExtract(files: File[], ctx: W2MContext | null, settings: 
       keyword_rules: settings.keywordRules,
     }),
   );
-  form.append("debug", "true");
+  form.append("debug", String(settings.developerMode));
   return postService<ExtractResponse>("/extract", form);
 }
 
@@ -100,7 +100,7 @@ export function requestExtract(files: File[], ctx: W2MContext | null, settings: 
  * Ask the service which slots to mark available.
  *
  * @param {W2MContext} ctx The When2meet event context.
- * @param {ReviewedEvent[]} events Reviewed busy events.
+ * @param {ReviewedEvent[]} events Busy events (from extraction, with any weekday corrections).
  * @param {Settings} settings User settings.
  * @param {Partial<Record<Weekday, string>>} weekdayDates Weekday -> ISO date, for long specific-dates events.
  * @returns {Promise<FillPlan>} The plan.
@@ -121,6 +121,8 @@ export function requestFillPlan(
       buffer_minutes: settings.bufferMinutes,
       min_free_block_minutes: settings.minFreeBlockMinutes,
       all_day_busy: settings.allDayBusy,
+      color_rules: settings.colorRules,
+      color_rule_mode: settings.colorRuleMode,
     },
     weekday_dates: weekdayDates,
   });

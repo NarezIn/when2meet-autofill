@@ -1,0 +1,132 @@
+{
+  "image": "fixtures/ios_2img_test_wide/ios_2img_test_up.png",
+  "description": "iOS Calendar week view, landscape (no separator before Monday), scrolled to 07:00-18:00; Sat 10/17 cut off on the right. Expected times checked by eye against the screenshot.",
+  "events": [
+    {
+      "day": "Mon",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Mon",
+      "start": "09:30",
+      "end": "11:00",
+      "low": false
+    },
+    {
+      "day": "Mon",
+      "start": "11:00",
+      "end": "12:15",
+      "low": false
+    },
+    {
+      "day": "Mon",
+      "start": "11:00",
+      "end": "12:15",
+      "low": false
+    },
+    {
+      "day": "Mon",
+      "start": "14:00",
+      "end": "15:00",
+      "low": false
+    },
+    {
+      "day": "Tue",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Tue",
+      "start": "09:30",
+      "end": "10:45",
+      "low": false
+    },
+    {
+      "day": "Tue",
+      "start": "14:00",
+      "end": "15:15",
+      "low": false
+    },
+    {
+      "day": "Tue",
+      "start": "15:30",
+      "end": "16:45",
+      "low": false
+    },
+    {
+      "day": "Wed",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Wed",
+      "start": "11:00",
+      "end": "12:15",
+      "low": false
+    },
+    {
+      "day": "Wed",
+      "start": "11:00",
+      "end": "12:15",
+      "low": false
+    },
+    {
+      "day": "Wed",
+      "start": "14:30",
+      "end": "14:45",
+      "low": true
+    },
+    {
+      "day": "Thu",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Thu",
+      "start": "09:30",
+      "end": "11:00",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "09:30",
+      "end": "10:45",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "14:00",
+      "end": "15:15",
+      "low": false
+    },
+    {
+      "day": "Thu",
+      "start": "15:30",
+      "end": "16:45",
+      "low": false
+    },
+    {
+      "day": "Fri",
+      "start": "08:00",
+      "end": "09:15",
+      "low": false
+    },
+    {
+      "day": "Fri",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    },
+    {
+      "day": "Sat",
+      "start": "09:00",
+      "end": "09:15",
+      "low": true
+    }
+  ]
+}
