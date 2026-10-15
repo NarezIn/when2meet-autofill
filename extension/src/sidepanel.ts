@@ -131,6 +131,38 @@ async function writeUndoStack(ctx: W2MContext, stack: number[][]): Promise<void>
 }
 
 /**
+ * Storage key for the summaries of this event's fills (one per undo snapshot).
+ *
+ * @param {W2MContext} ctx The event context.
+ * @returns {string} The key.
+ */
+function summaryKey(ctx: W2MContext): string {
+  return `summary:${ctx.eventId}:${ctx.userId}`;
+}
+
+/**
+ * Read the fill summaries for this event, parallel to the undo stack.
+ *
+ * @param {W2MContext} ctx The event context.
+ * @returns {Promise<string[]>} Summaries, oldest first.
+ */
+async function readSummaries(ctx: W2MContext): Promise<string[]> {
+  const key = summaryKey(ctx);
+  return ((await chrome.storage.session.get(key))[key] as string[] | undefined) ?? [];
+}
+
+/**
+ * Write the fill summaries for this event.
+ *
+ * @param {W2MContext} ctx The event context.
+ * @param {string[]} summaries Summaries, oldest first.
+ * @returns {Promise<void>}
+ */
+async function writeSummaries(ctx: W2MContext, summaries: string[]): Promise<void> {
+  await chrome.storage.session.set({ [summaryKey(ctx)]: summaries });
+}
+
+/**
  * Get the When2meet tab and its context, requiring a signed-in user.
  *
  * @returns {Promise<{tabId: number, ctx: W2MContext}>} The tab id and context.
@@ -274,8 +306,9 @@ async function fill(): Promise<void> {
 
   const summary = [`Filled ${plan.available_slots.length} slots`];
   const uncertain = plan.low_confidence_slots.length;
-  if (uncertain) summary.push(`${uncertain} uncertain slot${uncertain > 1 ? "s" : ""} outlined on the grid`);
+  if (uncertain) summary.push(`${uncertain} to check`);
   showResult(summary.join(" · "));
+  await writeSummaries(ctx, [...(await readSummaries(ctx)), summary.join(" · ")].slice(-stack.length));
 
   const warnings: string[] = [];
   if (plan.color_skipped.length) {
@@ -303,6 +336,7 @@ async function undo(): Promise<void> {
   const result = await applyAvailability(tabId, snapshot);
   await outlineSlots(tabId, []);
   await writeUndoStack(ctx, stack);
+  await writeSummaries(ctx, (await readSummaries(ctx)).slice(0, -1));
   $("result").hidden = true;
   say(
     result.mismatched.length
@@ -349,6 +383,7 @@ async function refreshStatus(): Promise<void> {
 
   let pageProblem: string | null = null;
   let undoAvailable = false;
+  let lastSummary: string | undefined;
   try {
     const tab = await activeWhen2meetTab();
     if (!tab?.id) {
@@ -366,6 +401,7 @@ async function refreshStatus(): Promise<void> {
       );
       if (!ctx.signedIn) pageProblem = "Sign in with your name on the When2meet page.";
       undoAvailable = ctx.signedIn && (await readUndoStack(ctx)).length > 0;
+      if (undoAvailable) lastSummary = (await readSummaries(ctx)).at(-1);
     }
   } catch (err) {
     pageProblem = err instanceof Error ? err.message : String(err);
@@ -379,7 +415,7 @@ async function refreshStatus(): Promise<void> {
   if (!undoAvailable) {
     $("result").hidden = true;
   } else if ($("result").hidden) {
-    showResult("Your last fill on this event can be undone.");
+    showResult(lastSummary ?? "Your last fill can be undone");
   }
 }
 
@@ -586,9 +622,14 @@ function weekdayPrompt(index: number): HTMLElement | null {
   return prompt;
 }
 
+/** Small "x" icon for the remove buttons (static markup, no user data). */
+const X_ICON =
+  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" ' +
+  'stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
 /**
- * Render the screenshot thumbnails in upload order: full image (never cropped),
- * remove button, file name, and any read error or weekday prompt.
+ * Render the screenshot thumbnails in upload order: full image (never cropped), then the
+ * file name with a remove button below it, then any read error or weekday prompt.
  *
  * @returns {void}
  */
@@ -597,22 +638,23 @@ function renderImages(): void {
     ...shots.map((shot, i) => {
       const report = extraction?.reports[i];
       const prompt = weekdayPrompt(i);
+      const remove = h("button", {
+        type: "button",
+        className: "thumb-remove",
+        title: "Remove",
+        ariaLabel: `Remove ${shot.file.name}`,
+        onclick: () => removeShot(i),
+      });
+      remove.innerHTML = X_ICON;
       const card = h(
-        "div",
+        "figure",
         { className: `thumb${report?.error ? " has-error" : ""}${prompt ? " needs-input" : ""}` },
         h(
           "button",
-          { className: "thumb-open", title: "Enlarge", onclick: () => openViewer(i) },
+          { type: "button", className: "thumb-open", title: "Enlarge", ariaLabel: `Enlarge ${shot.file.name}`, onclick: () => openViewer(i) },
           h("img", { src: shot.url, alt: `Screenshot ${i + 1}: ${shot.file.name}` }),
         ),
-        h("button", {
-          className: "thumb-remove",
-          textContent: "×",
-          title: "Remove",
-          ariaLabel: `Remove ${shot.file.name}`,
-          onclick: () => removeShot(i),
-        }),
-        h("div", { className: "thumb-name", title: shot.file.name }, shot.file.name),
+        h("figcaption", {}, h("span", { className: "thumb-name", title: shot.file.name }, shot.file.name), remove),
       );
       if (report?.error) card.append(h("div", { className: "error" }, `Couldn't read this screenshot: ${report.error}`));
       if (prompt) card.append(prompt);
@@ -729,6 +771,7 @@ function renderViewer(): void {
 function bindUpload(): void {
   const drop = $("drop");
   const input = $<HTMLInputElement>("files");
+  drop.addEventListener("click", () => input.click());
   input.addEventListener("change", () => {
     addFiles(input.files ?? []);
     input.value = "";
@@ -776,6 +819,12 @@ async function init(): Promise<void> {
   $("fill").addEventListener("click", () => void guarded(fill));
   $("undo").addEventListener("click", () => void guarded(undo));
   $("banner-retry").addEventListener("click", () => void refreshStatus());
+  $("settings-toggle").addEventListener("click", () => {
+    const toggle = $("settings-toggle");
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    $("settings-section").hidden = !open;
+  });
   chrome.tabs.onActivated.addListener(() => void refreshStatus());
   chrome.tabs.onUpdated.addListener((_id, info) => {
     if (info.status === "complete") void refreshStatus();

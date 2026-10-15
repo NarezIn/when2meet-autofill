@@ -205,7 +205,7 @@ async function runEvent(browser, extId, url, dow) {
   const t0 = Date.now();
   const filled = await clickAndWait(panel, "#fill");
   console.log(`  fill (${((Date.now() - t0) / 1000).toFixed(1)}s): ${filled.result} | ${filled.message.replaceAll("\n", " | ")}`);
-  check(/^Filled \d+ slots · 3 uncertain slots outlined on the grid$/.test(filled.result ?? ""), "one-line summary");
+  check(/^Filled \d+ slots · 3 to check$/.test(filled.result ?? ""), "one-line summary");
   check(!(await panel.$eval("#undo", (e) => e.disabled)), "Undo enabled next to the summary");
   if (!dow) {
     check(filled.message.includes("3 events left out by your color rules."), "color rule reported 3 yellow events left out");

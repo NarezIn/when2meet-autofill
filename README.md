@@ -383,7 +383,7 @@ click the **reload** (circular arrow) button on the Screenshot2Meet card.
    Next, Esc to close), or click **×** to remove it.
 5. Click **Fill When2meet**. The panel reads the screenshots and fills the grid in one go.
    The first run takes longer while the OCR models load. When it's done you see a line like
-   `Filled 288 slots · 3 uncertain slots outlined on the grid` next to **Undo fill**.
+   `Filled 288 slots · 3 to check` next to **Undo fill** (the slots to check are outlined on the grid).
    - If a screenshot's weekday can't be read, that screenshot gets a small
      **Which day is this column?** prompt instead. Pick the day and click **Fill When2meet**
      again.

@@ -20,6 +20,13 @@ do the visual checks by hand.
       days of the week). Refresh re-checks.
 - [ ] There is no status line or Refresh button at the top of the panel.
 
+## Look and layout (design/panel_reference.html)
+- [ ] Dark cards with number badges 1 and 2, Manrope font, no "Screenshot2Meet" title in the panel body.
+- [ ] Fill When2meet is When2meet green (#339900) with dark text, darker on hover, dimmed while
+      there are no screenshots or a fill is running. Tab through the panel: every control shows a green focus ring.
+- [ ] Settings is a row at the bottom; clicking it expands the settings in place and turns the chevron.
+- [ ] Thumbnails: 2 columns from 320 to 500 px wide; file name with × below each image.
+
 ## Upload and screenshots
 - [ ] Choose, drag-and-drop, and paste (Ctrl+V) a screenshot; each one appears as a thumbnail
       in upload order, with its file name and an × button.
@@ -44,7 +51,7 @@ do the visual checks by hand.
 - [ ] "Fill When2meet" with the fixture on the specific-dates event reads and fills in one go:
       Mon/Tue are filled except the busy times; Wed–Fri are fully available. The group grid
       updates. "Plan out Tomorrow" (keyword rule) is not treated as busy.
-- [ ] After filling, one line reads "Filled N slots · 3 uncertain slots outlined on the grid"
+- [ ] After filling, one line reads "Filled N slots · 3 to check" (it comes back after closing and reopening the panel)
       next to "Undo fill".
 - [ ] The low-confidence cells (Mon 09:00, Mon 14:15, Tue 09:00) have a dashed orange outline.
 - [ ] You can still click and drag on outlined cells (the outline doesn't block clicks).

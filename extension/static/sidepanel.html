@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Screenshot2Meet side panel: problem banner, screenshots, fill/undo, settings, enlarged view. -->
+<!-- Screenshot2Meet side panel: problem banner, 1. screenshots, (date picker), 2. fill/undo, settings, enlarged view. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -8,111 +8,132 @@
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
-  <header>
-    <h1>Screenshot2Meet</h1>
-  </header>
+  <main class="panel">
 
-  <div id="banner" class="banner" role="alert" hidden>
-    <span id="banner-text"></span>
-    <button id="banner-retry" class="link">Check again</button>
-  </div>
+    <div id="banner" class="card banner" role="alert" hidden>
+      <svg class="banner-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg>
+      <span id="banner-text" class="banner-text"></span>
+      <button id="banner-retry" type="button" class="link-btn">Check again</button>
+    </div>
 
-  <section id="upload-section">
-    <h2>1. Screenshots</h2>
-    <label id="drop" class="drop">
+    <!-- 1. Screenshots -->
+    <section id="upload-section" class="card">
+      <div class="card-head">
+        <span class="num" aria-hidden="true">1</span>
+        <h2>Screenshots</h2>
+        <button id="clear-images" type="button" class="link-btn" hidden>Remove all</button>
+      </div>
       <input id="files" type="file" accept="image/*" multiple hidden>
-      <span>Drop, paste, or <u>choose</u> calendar screenshots</span>
-    </label>
-    <div id="images" class="thumbs"></div>
-    <div class="row">
-      <button id="clear-images" class="link" hidden>Remove all</button>
-    </div>
-  </section>
+      <button id="drop" type="button" class="drop">
+        <b>Drop, paste, or choose</b>
+        <span>iOS or Google Calendar, any number of images</span>
+      </button>
+      <div id="images" class="thumbs"></div>
+    </section>
 
-  <section id="ambiguity" hidden>
-    <h2>Which date is each weekday?</h2>
-    <p class="hint">This event covers more than one week. Pick the date your screenshots show for each weekday.</p>
-    <div id="ambiguity-fields"></div>
-  </section>
+    <!-- Only for specific-dates events longer than a week -->
+    <section id="ambiguity" class="card" hidden>
+      <div class="card-head">
+        <h2>Which date is each weekday?</h2>
+      </div>
+      <p class="hint">This event covers more than one week. Pick the date your screenshots show for each weekday.</p>
+      <div id="ambiguity-fields" class="fields"></div>
+    </section>
 
-  <section>
-    <h2>2. Fill</h2>
-    <div class="actions">
-      <button id="fill" class="primary" disabled>Fill When2meet</button>
-    </div>
-    <p id="message" role="status"></p>
-    <div id="result" class="result" hidden>
-      <span id="result-text"></span>
-      <button id="undo">Undo fill</button>
-    </div>
-  </section>
+    <!-- 2. Fill (+ undo row, shown only when there is something to undo) -->
+    <section class="card">
+      <div class="card-head">
+        <span class="num" aria-hidden="true">2</span>
+        <h2>Fill</h2>
+      </div>
+      <button id="fill" type="button" class="primary" disabled>Fill When2meet</button>
+      <p id="message" class="message" role="status"></p>
+      <div id="result" class="result" hidden>
+        <span id="result-text" title="Slots to check are outlined on the When2meet grid."></span>
+        <button id="undo" type="button" class="secondary">Undo fill</button>
+      </div>
+    </section>
 
-  <details id="settings-section">
-    <summary>Settings</summary>
+    <div class="spacer"></div>
 
-    <h3>Connection</h3>
-    <dl class="kv">
-      <dt>Service</dt><dd id="conn-service">Checking…</dd>
-      <dt>Signed in as</dt><dd id="conn-user">–</dd>
-      <dt>Event type</dt><dd id="conn-mode">–</dd>
-      <dt>Timezone</dt><dd id="conn-tz">–</dd>
-    </dl>
-    <button id="refresh" title="Re-check the service and the When2meet tab">Refresh</button>
+    <!-- Settings: a card-style row that expands in place -->
+    <section class="card settings-card">
+      <button id="settings-toggle" type="button" class="settings-toggle" aria-expanded="false" aria-controls="settings-section">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+        <span class="label">Settings</span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
 
-    <h3>Reading and filling</h3>
-    <form id="settings" class="settings">
-      <label>OCR engine
-        <select name="ocrEngine">
-          <option value="paddle">PaddleOCR</option>
-          <option value="tesseract">Tesseract</option>
-        </select>
-      </label>
-      <label>OCR languages <small>(comma-separated)</small>
-        <input name="ocrLanguages" type="text">
-      </label>
-      <label>Confidence threshold
-        <input name="confidenceThreshold" type="number" min="0" max="1" step="0.05">
-      </label>
-      <label>Keyword rules <small>(one per line; matching titles don't count as busy)</small>
-        <textarea name="keywordRules" rows="3"></textarea>
-      </label>
-      <fieldset class="color-rules">
-        <legend>Color rules</legend>
-        <div id="color-chips" class="chips" aria-label="Rule colors"></div>
-        <p id="color-empty" class="hint">No colors yet. Pick one from your screenshots below, or choose any color.</p>
-        <label class="check switch">
-          <input name="colorOnly" type="checkbox" role="switch">
-          <span>Only count events in these colors</span>
-        </label>
-        <p id="color-mode-hint" class="hint"></p>
-        <div class="row">
-          <input id="color-pick" type="color" value="#59a7d7" aria-label="Choose a color">
-          <button id="color-add" type="button">Add color</button>
-        </div>
-        <p class="hint">Colors in your screenshots <small>(click to add)</small>:</p>
-        <div id="found-colors" class="chips"></div>
-        <button id="find-colors" type="button" class="link">Find colors in my screenshots</button>
-      </fieldset>
-      <label>Buffer minutes
-        <input name="bufferMinutes" type="number" min="0" max="240" step="5">
-      </label>
-      <label>Minimum free block (minutes)
-        <input name="minFreeBlockMinutes" type="number" min="0" max="1440" step="15">
-      </label>
-      <label class="check"><input name="allDayBusy" type="checkbox"> All-day events count as busy</label>
-      <label class="check switch">
-        <input name="developerMode" type="checkbox" role="switch">
-        <span>Developer mode <small>(the enlarged screenshot shows the detected time axis, day columns and events)</small></span>
-      </label>
-    </form>
-  </details>
+      <div id="settings-section" class="settings-body" hidden>
+        <h3>Connection</h3>
+        <dl class="kv">
+          <dt>Service</dt><dd id="conn-service">Checking…</dd>
+          <dt>Signed in as</dt><dd id="conn-user">–</dd>
+          <dt>Event type</dt><dd id="conn-mode">–</dd>
+          <dt>Timezone</dt><dd id="conn-tz">–</dd>
+        </dl>
+        <button id="refresh" type="button" class="secondary" title="Re-check the service and the When2meet tab">Refresh</button>
+
+        <h3>Reading and filling</h3>
+        <form id="settings" class="settings">
+          <label>OCR engine
+            <select name="ocrEngine">
+              <option value="paddle">PaddleOCR</option>
+              <option value="tesseract">Tesseract</option>
+            </select>
+          </label>
+          <label>OCR languages <small>(comma-separated)</small>
+            <input name="ocrLanguages" type="text">
+          </label>
+          <label>Confidence threshold
+            <input name="confidenceThreshold" type="number" min="0" max="1" step="0.05">
+          </label>
+          <label>Keyword rules <small>(one per line; matching titles don't count as busy)</small>
+            <textarea name="keywordRules" rows="3"></textarea>
+          </label>
+          <fieldset class="color-rules">
+            <legend>Color rules</legend>
+            <div id="color-chips" class="chips" aria-label="Rule colors"></div>
+            <p id="color-empty" class="hint">No colors yet. Pick one from your screenshots below, or choose any color.</p>
+            <label class="check switch">
+              <input name="colorOnly" type="checkbox" role="switch">
+              <span>Only count events in these colors</span>
+            </label>
+            <p id="color-mode-hint" class="hint"></p>
+            <div class="row">
+              <input id="color-pick" type="color" value="#59a7d7" aria-label="Choose a color">
+              <button id="color-add" type="button" class="secondary">Add color</button>
+            </div>
+            <p class="hint">Colors in your screenshots <small>(click to add)</small></p>
+            <div id="found-colors" class="chips"></div>
+            <button id="find-colors" type="button" class="link-btn">Find colors in my screenshots</button>
+          </fieldset>
+          <label>Buffer minutes
+            <input name="bufferMinutes" type="number" min="0" max="240" step="5">
+          </label>
+          <label>Minimum free block (minutes)
+            <input name="minFreeBlockMinutes" type="number" min="0" max="1440" step="15">
+          </label>
+          <label class="check"><input name="allDayBusy" type="checkbox"> <span>All-day events count as busy</span></label>
+          <label class="check switch">
+            <input name="developerMode" type="checkbox" role="switch">
+            <span>Developer mode <small>(the enlarged screenshot shows the detected time axis, day columns and events)</small></span>
+          </label>
+        </form>
+      </div>
+    </section>
+  </main>
 
   <div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-label="Screenshot" hidden>
     <div class="viewer-bar">
-      <button id="viewer-prev" aria-label="Previous screenshot">‹ Prev</button>
+      <button id="viewer-prev" type="button" class="secondary icon-btn" aria-label="Previous screenshot">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
       <span id="viewer-title" class="viewer-title"></span>
-      <button id="viewer-next" aria-label="Next screenshot">Next ›</button>
-      <button id="viewer-close" aria-label="Close">Close</button>
+      <button id="viewer-next" type="button" class="secondary icon-btn" aria-label="Next screenshot">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <button id="viewer-close" type="button" class="secondary">Close</button>
     </div>
     <p id="viewer-note" class="hint viewer-note" hidden></p>
     <div id="viewer-scroll" class="viewer-scroll">
