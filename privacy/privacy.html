@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  Privacy policy for the Screenshot2Meet Chrome extension and its hosted service.
+  Published with GitHub Pages; linked from the Chrome Web Store listing.
+  Keep it in sync with what the code actually sends and stores (extension/src/api.ts,
+  extension/src/settings.ts, server/src/screenshot2meet/app.py).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screenshot2Meet Privacy Policy</title>
+  <meta name="description" content="How the Screenshot2Meet Chrome extension handles your calendar screenshots and data.">
+  <style>
+    :root {
+      --bg: #fbfbf9;
+      --surface: #ffffff;
+      --text: #1d2321;
+      --muted: #5b6662;
+      --border: #e3e6e3;
+      --accent: #2f7d1e;
+      --accent-soft: #eef6ea;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141816;
+        --surface: #1b201e;
+        --text: #e7ebe8;
+        --muted: #a2aca8;
+        --border: #2c3330;
+        --accent: #7cc96a;
+        --accent-soft: #1f2a1c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 48px 16px 80px; }
+    h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.01em; }
+    h2 { font-size: 1.2rem; margin: 40px 0 8px; }
+    p, li { color: var(--text); }
+    ul { padding-left: 1.25rem; }
+    li { margin: 4px 0; }
+    a { color: var(--accent); }
+    code { font-size: 0.9em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+    .meta { color: var(--muted); margin: 0 0 28px; }
+    .summary {
+      background: var(--accent-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .summary ul { margin: 8px 0 0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.95rem; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+    footer { margin-top: 48px; color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Screenshot2Meet Privacy Policy</h1>
+    <p class="meta">Effective October 17, 2026</p>
+
+    <div class="summary">
+      <strong>In short</strong>
+      <ul>
+        <li>The calendar screenshots you add are sent over HTTPS to the Screenshot2Meet service, read in memory, and then discarded. They are never saved or shared.</li>
+        <li>There are no accounts, ads, analytics or tracking, and your data is never sold.</li>
+        <li>Your settings stay in your own browser.</li>
+      </ul>
+    </div>
+
+    <h2>What Screenshot2Meet does</h2>
+    <p>
+      Screenshot2Meet is a Chrome extension that fills in your availability on a
+      <a href="https://www.when2meet.com">When2meet</a> event from screenshots of your calendar.
+      You add screenshots in the extension's side panel. The Screenshot2Meet service reads the
+      events in them and works out which time slots you are free. The extension then marks those
+      slots on the When2meet page you have open, the same way you would by clicking.
+    </p>
+
+    <h2>Information sent to the service</h2>
+    <p>When you click <strong>Fill When2meet</strong>, the extension sends the service only what it needs for that fill:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>What</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>The screenshots you add</td>
+            <td>To find the events and their times. Anything visible in a screenshot, such as event titles, is part of what is read.</td>
+          </tr>
+          <tr>
+            <td>Details of the When2meet event: its time slots, its dates or days of the week, and its time zone</td>
+            <td>To match your calendar events to the event's slots.</td>
+          </tr>
+          <tr>
+            <td>The events read from your screenshots (day, start and end time, title, colour)</td>
+            <td>Sent back to the service to work out which slots are free.</td>
+          </tr>
+          <tr>
+            <td>Your Screenshot2Meet settings (OCR languages, keywords and colours to ignore, buffer time, and similar)</td>
+            <td>To apply your preferences when reading screenshots and choosing slots.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The extension does <strong>not</strong> send your When2meet name, your When2meet password,
+      other people's availability, your browsing history, or anything from other websites.
+    </p>
+
+    <h2>How the service handles your information</h2>
+    <ul>
+      <li>All requests go over an encrypted HTTPS connection.</li>
+      <li>Screenshots and event details are processed in memory only to answer your request, then discarded. They are not written to disk, kept in a database, or logged.</li>
+      <li>Your information is not shared with or sold to anyone, and is not used to train models, for advertising, or for anything other than filling in your When2meet availability.</li>
+    </ul>
+
+    <h2>Hosting and technical logs</h2>
+    <p>
+      The service runs on <a href="https://fly.io">Fly.io</a> in the United States. Like most web
+      services, the hosting platform keeps short-term technical logs of requests: the time, your IP
+      address, the address requested (for example <code>/extract</code>), and whether it succeeded.
+      These logs do not contain your screenshots or event details. They are used only to keep the
+      service running and to investigate problems, and are kept according to Fly.io's log retention.
+    </p>
+    <p>
+      To prevent abuse, the service also counts how many requests each IP address makes. These
+      counts are kept in memory for up to one hour and then discarded.
+    </p>
+
+    <h2>Information on the When2meet page</h2>
+    <p>
+      When you use the side panel, the extension reads the When2meet event open in your current tab:
+      its time slots, time zone, whether you are signed in, and your current availability. It uses
+      this to fill in, and if you ask, undo, your own availability. It only changes your availability.
+      It does not change other people's responses or the event itself.
+    </p>
+
+    <h2>Information stored in your browser</h2>
+    <ul>
+      <li><strong>Settings</strong> are saved in your browser's extension storage, so they are still there next time. They stay until you change them or remove the extension.</li>
+      <li><strong>Undo history</strong> (your previous availability on an event, so you can undo a fill) is kept in session storage and is cleared when you close the browser.</li>
+    </ul>
+    <p>This stored information never leaves your computer, except for the settings listed in the table above, which are sent with each fill.</p>
+
+    <h2>Your choices</h2>
+    <ul>
+      <li>Only the screenshots you choose to add are ever sent. You can crop out anything you'd rather not share before adding a screenshot.</li>
+      <li>Removing the extension deletes its settings and undo history from your browser.</li>
+    </ul>
+
+    <h2>Chrome Web Store user data policy</h2>
+    <p>
+      Screenshot2Meet's use of information received through the extension follows the
+      <a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq">Chrome Web Store User Data Policy</a>,
+      including the Limited Use requirements.
+    </p>
+
+    <h2>Children</h2>
+    <p>Screenshot2Meet is not directed at children under 13 and does not knowingly collect information from them.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      If this policy changes, the updated version will be posted on this page with a new effective
+      date. Significant changes will also be mentioned in the extension's release notes.
+    </p>
+
+    <h2>Contact</h2>
+    <p>Questions or requests about privacy: <a href="mailto:simonni2004@outlook.com">simonni2004@outlook.com</a></p>
+
+    <footer>Screenshot2Meet is not affiliated with When2meet.</footer>
+  </main>
+</body>
+</html>
