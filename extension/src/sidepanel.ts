@@ -12,7 +12,7 @@ import {
   requestFillPlan,
   serviceHealthy,
 } from "./api";
-import { loadSettings, saveSettings, type Settings } from "./settings";
+import { loadSettings, LOCAL_SERVICE_URL, requestLocalAccess, saveSettings, serviceUrl, type Settings } from "./settings";
 import { WEEKDAYS, type ImageReport, type ReviewedEvent, type W2MContext, type Weekday } from "./shared";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -379,7 +379,8 @@ function setBanner(text: string | null): void {
  */
 async function refreshStatus(): Promise<void> {
   const ok = await serviceHealthy();
-  setConn("conn-service", ok ? "Running" : "Not running", ok ? "ok" : "bad");
+  const local = serviceUrl(settings) === LOCAL_SERVICE_URL;
+  setConn("conn-service", ok ? "Running" : local ? "Not running" : "Unreachable", ok ? "ok" : "bad");
 
   let pageProblem: string | null = null;
   let undoAvailable = false;
@@ -410,7 +411,13 @@ async function refreshStatus(): Promise<void> {
     setConn("conn-tz", "–");
   }
 
-  setBanner(ok ? pageProblem : "Start the local service: run screenshot2meet serve (see the README).");
+  setBanner(
+    ok
+      ? pageProblem
+      : local
+        ? "Start the local service: run screenshot2meet serve (see the README)."
+        : "Can't reach the Screenshot2Meet service. Check your internet connection and try again.",
+  );
   $<HTMLButtonElement>("undo").disabled = busy || !undoAvailable;
   if (!undoAvailable) {
     $("result").hidden = true;
@@ -436,8 +443,21 @@ function bindSettings(): void {
   field("allDayBusy").checked = settings.allDayBusy;
   field("colorOnly").checked = settings.colorRuleMode === "only";
   field("developerMode").checked = settings.developerMode;
+  field("useLocalService").checked = settings.serviceTarget === "local";
+  $("local-service-row").hidden = !settings.developerMode;
+
+  // Ask for the optional localhost permission while we still have the click gesture.
+  field("useLocalService").addEventListener("change", () => {
+    if (!field("useLocalService").checked) return;
+    void requestLocalAccess().then((granted) => {
+      if (granted) return;
+      field("useLocalService").checked = false;
+      form.dispatchEvent(new Event("change"));
+    });
+  });
 
   form.addEventListener("change", () => {
+    const previousUrl = serviceUrl(settings);
     settings = {
       ocrEngine: field("ocrEngine").value as Settings["ocrEngine"],
       ocrLanguages: field("ocrLanguages").value.split(",").map((s) => s.trim()).filter(Boolean),
@@ -452,8 +472,11 @@ function bindSettings(): void {
       colorRules: settings.colorRules,
       colorRuleMode: field("colorOnly").checked ? "only" : "exclude",
       developerMode: field("developerMode").checked,
+      serviceTarget: field("useLocalService").checked ? "local" : "hosted",
     };
+    $("local-service-row").hidden = !settings.developerMode;
     void saveSettings(settings);
+    if (serviceUrl(settings) !== previousUrl) void refreshStatus();
     renderViewer();
     renderColorRules();
   });

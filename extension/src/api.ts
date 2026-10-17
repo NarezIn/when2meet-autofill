@@ -1,5 +1,5 @@
 /**
- * Client for the local Screenshot2Meet service and for the When2meet tab.
+ * Client for the Screenshot2Meet service (hosted or local) and for the When2meet tab.
  */
 import type {
   ApplyResult,
@@ -11,18 +11,22 @@ import type {
   W2MContext,
   Weekday,
 } from "./shared";
-import type { Settings } from "./settings";
+import { loadSettings, serviceUrl, type Settings } from "./settings";
 
-export const SERVICE_URL = "http://127.0.0.1:8765";
+/** Upload limits for /extract; keep in sync with MAX_IMAGES / MAX_FILE_BYTES in server/src/screenshot2meet/app.py. */
+export const MAX_IMAGES = 5;
+export const MAX_IMAGE_MB = 10;
 
 /**
- * Check whether the local service is running.
+ * Check whether the selected service (hosted or local) is reachable.
  *
  * @returns {Promise<boolean>} True if GET /health answers ok.
  */
 export async function serviceHealthy(): Promise<boolean> {
+  const base = serviceUrl(await loadSettings());
   try {
-    const resp = await fetch(`${SERVICE_URL}/health`, { signal: AbortSignal.timeout(2000) });
+    // 15s: a stopped Fly Machine needs a few seconds to wake up and load OCR models
+    const resp = await fetch(`${base}/health`, { signal: AbortSignal.timeout(15000) });
     return resp.ok;
   } catch {
     return false;
@@ -37,19 +41,43 @@ export async function serviceHealthy(): Promise<boolean> {
  * @returns {Promise<T>} Parsed JSON response.
  */
 export async function postService<T>(path: string, body: unknown): Promise<T> {
+  const base = serviceUrl(await loadSettings());
   const isForm = body instanceof FormData;
   let resp: Response;
   try {
-    resp = await fetch(`${SERVICE_URL}${path}`, {
+    resp = await fetch(`${base}${path}`, {
       method: "POST",
       headers: isForm ? undefined : { "Content-Type": "application/json" },
       body: isForm ? body : JSON.stringify(body),
     });
   } catch {
-    throw new Error(`Can't reach the local service at ${SERVICE_URL}. Is it running?`);
+    throw new Error(`Can't reach the Screenshot2Meet service at ${base}. Check your connection and try again.`);
   }
-  if (!resp.ok) throw new Error(`Service error ${resp.status}: ${await resp.text()}`);
+  if (!resp.ok) throw new Error(await errorMessage(resp));
   return (await resp.json()) as T;
+}
+
+/**
+ * Turn a failed service response into a message for the user. Limit errors (413 too large,
+ * 429 too many requests) carry a plain-language `detail` from the service, shown as is.
+ *
+ * @param {Response} resp The non-ok response.
+ * @returns {Promise<string>} The message to show.
+ */
+async function errorMessage(resp: Response): Promise<string> {
+  const text = await resp.text();
+  if (resp.status === 413 || resp.status === 429) {
+    try {
+      const detail = (JSON.parse(text) as { detail?: unknown }).detail;
+      if (typeof detail === "string") return detail;
+    } catch {
+      // not JSON: fall through to the generic messages
+    }
+    return resp.status === 429
+      ? "Too many requests from your network. Try again later."
+      : "Those screenshots are too large to send.";
+  }
+  return `Service error ${resp.status}: ${text}`;
 }
 
 /**
@@ -77,7 +105,13 @@ export function eventDates(ctx: W2MContext): string[] {
  * @param {Settings} settings User settings.
  * @returns {Promise<ExtractResponse>} Events and per-image reports (with debug overlays in developer mode).
  */
-export function requestExtract(files: File[], ctx: W2MContext | null, settings: Settings): Promise<ExtractResponse> {
+export async function requestExtract(files: File[], ctx: W2MContext | null, settings: Settings): Promise<ExtractResponse> {
+  // Same limits the service enforces; checking here saves an upload (and a rate-limit hit).
+  if (files.length > MAX_IMAGES) {
+    throw new Error(`Use at most ${MAX_IMAGES} screenshots at a time. Remove ${files.length - MAX_IMAGES} and try again.`);
+  }
+  const tooBig = files.find((f) => f.size > MAX_IMAGE_MB * 1024 * 1024);
+  if (tooBig) throw new Error(`${tooBig.name} is larger than ${MAX_IMAGE_MB} MB.`);
   const form = new FormData();
   for (const file of files) form.append("files", file, file.name);
   form.append(
