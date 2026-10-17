@@ -11,7 +11,7 @@ import type {
   W2MContext,
   Weekday,
 } from "./shared";
-import { loadSettings, serviceUrl, type Settings } from "./settings";
+import { effectiveOcrEngine, loadSettings, serviceUrl, type Settings } from "./settings";
 
 /** Upload limits for /extract; keep in sync with MAX_IMAGES / MAX_FILE_BYTES in server/src/screenshot2meet/app.py. */
 export const MAX_IMAGES = 5;
@@ -38,9 +38,10 @@ export async function serviceHealthy(): Promise<boolean> {
  *
  * @param {string} path Endpoint path, e.g. "/fill-plan".
  * @param {unknown} body Request body (JSON-serialisable) or FormData.
+ * @param {number} timeoutMs Give up after this long (default 30 s).
  * @returns {Promise<T>} Parsed JSON response.
  */
-export async function postService<T>(path: string, body: unknown): Promise<T> {
+export async function postService<T>(path: string, body: unknown, timeoutMs = 30_000): Promise<T> {
   const base = serviceUrl(await loadSettings());
   const isForm = body instanceof FormData;
   let resp: Response;
@@ -49,8 +50,12 @@ export async function postService<T>(path: string, body: unknown): Promise<T> {
       method: "POST",
       headers: isForm ? undefined : { "Content-Type": "application/json" },
       body: isForm ? body : JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new Error("The service took too long to respond. Try again in a minute.");
+    }
     throw new Error(`Can't reach the Screenshot2Meet service at ${base}. Check your connection and try again.`);
   }
   if (!resp.ok) throw new Error(await errorMessage(resp));
@@ -120,14 +125,15 @@ export async function requestExtract(files: File[], ctx: W2MContext | null, sett
       mode: ctx?.mode ?? "days_of_week",
       event_tz: ctx?.eventTz ?? null,
       dates: ctx ? eventDates(ctx) : [],
-      ocr_engine: settings.ocrEngine,
+      ocr_engine: effectiveOcrEngine(settings),
       ocr_languages: settings.ocrLanguages,
       confidence_threshold: settings.confidenceThreshold,
       keyword_rules: settings.keywordRules,
     }),
   );
   form.append("debug", String(settings.developerMode));
-  return postService<ExtractResponse>("/extract", form);
+  // Includes waking a stopped machine and loading the OCR models.
+  return postService<ExtractResponse>("/extract", form, 120_000);
 }
 
 /**

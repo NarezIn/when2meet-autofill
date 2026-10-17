@@ -12,7 +12,7 @@ import {
   requestFillPlan,
   serviceHealthy,
 } from "./api";
-import { loadSettings, LOCAL_SERVICE_URL, requestLocalAccess, saveSettings, serviceUrl, type Settings } from "./settings";
+import { effectiveOcrEngine, loadSettings, LOCAL_SERVICE_URL, requestLocalAccess, saveSettings, serviceUrl, type Settings } from "./settings";
 import { WEEKDAYS, type ImageReport, type ReviewedEvent, type W2MContext, type Weekday } from "./shared";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -217,7 +217,7 @@ async function guarded(action: () => Promise<void>): Promise<void> {
 function extractionKey(ctx: W2MContext): string {
   return JSON.stringify({
     shots: shots.map((s) => s.id),
-    engine: settings.ocrEngine,
+    engine: effectiveOcrEngine(settings),
     languages: settings.ocrLanguages,
     threshold: settings.confidenceThreshold,
     rules: settings.keywordRules,
@@ -445,6 +445,7 @@ function bindSettings(): void {
   field("developerMode").checked = settings.developerMode;
   field("useLocalService").checked = settings.serviceTarget === "local";
   $("local-service-row").hidden = !settings.developerMode;
+  $("ocr-engine-row").hidden = serviceUrl(settings) !== LOCAL_SERVICE_URL;
 
   // Ask for the optional localhost permission while we still have the click gesture.
   field("useLocalService").addEventListener("change", () => {
@@ -475,6 +476,7 @@ function bindSettings(): void {
       serviceTarget: field("useLocalService").checked ? "local" : "hosted",
     };
     $("local-service-row").hidden = !settings.developerMode;
+    $("ocr-engine-row").hidden = serviceUrl(settings) !== LOCAL_SERVICE_URL;
     void saveSettings(settings);
     if (serviceUrl(settings) !== previousUrl) void refreshStatus();
     renderViewer();

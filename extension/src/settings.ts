@@ -77,6 +77,17 @@ export function serviceUrl(settings: Settings): string {
 }
 
 /**
+ * OCR engine to request. The hosted service only has PaddleOCR, so Tesseract is used
+ * only with the local service.
+ *
+ * @param {Settings} settings The current settings.
+ * @returns {Settings["ocrEngine"]} The engine to send to the service.
+ */
+export function effectiveOcrEngine(settings: Settings): Settings["ocrEngine"] {
+  return serviceUrl(settings) === LOCAL_SERVICE_URL ? settings.ocrEngine : "paddle";
+}
+
+/**
  * Ask Chrome for access to the local service. Must be called from a click/change handler.
  *
  * @returns {Promise<boolean>} True if access was granted (or already held).
