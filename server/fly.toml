@@ -16,7 +16,7 @@ primary_region = 'ewr'
   processes = ['app']
 
 [[vm]]
-  memory = '1gb' # change this if reading takes more than 1gb.
+  # PaddleOCR peaks around 2.5 GB; 1 GB gets OOM-killed while loading models.
+  memory = '4gb'
   cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
+  cpus = 2
