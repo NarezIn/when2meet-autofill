@@ -18,6 +18,22 @@ import numpy as np
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 
+def ocr_cpu_threads() -> int:
+    """
+    Number of CPU threads PaddleOCR may use.
+
+    PaddleOCR defaults to 8, which on a 1-2 CPU server just makes the threads fight
+    over the CPUs. Uses OCR_CPU_THREADS if set, otherwise the CPUs this process can use.
+
+    Returns:
+        int: Thread count, at least 1.
+    """
+    configured = os.environ.get("OCR_CPU_THREADS")
+    if configured:
+        return max(1, int(configured))
+    return os.process_cpu_count() or 1
+
+
 @dataclass(frozen=True)
 class OcrWord:
     """One recognised text line."""
@@ -95,6 +111,7 @@ class PaddleEngine:
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
+                cpu_threads=ocr_cpu_threads(),
             )
             for model_lang in models or ["ch"]
         ]

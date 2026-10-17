@@ -18,5 +18,6 @@ primary_region = 'ewr'
 [[vm]]
   # PaddleOCR peaks around 2.5 GB; 1 GB gets OOM-killed while loading models.
   memory = '4gb'
-  cpu_kind = 'shared'
-  cpus = 2
+  # Dedicated core: shared CPUs get throttled after a few OCR runs and fills take minutes.
+  cpu_kind = 'performance'
+  cpus = 1
